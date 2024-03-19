@@ -28,6 +28,8 @@ class _HomeState extends State<Home> {
   Position? currentposition; // Initial value is null
   final double targetLat = -6.23428056838952; // Latitude titik SmileLaundry ,
   final double targetLon = 106.72582289599362; // Longitude titik SmileLaundry
+  // final double latitude2 = -6.2333005612485435;
+  // final double longitude2 = 106.72562947292523;
   String haversineDistanceText = '';
   String manhattanDistanceText = '';
   String euclideanDistanceText = '';
@@ -63,13 +65,37 @@ class _HomeState extends State<Home> {
         desiredAccuracy: LocationAccuracy.high);
 
     try {
+      //Get lat long dari GPS Geolocator
       List<Placemark> placemarks =
           await placemarkFromCoordinates(position.latitude, position.longitude);
+
+      //Get lat long geocodin utk alamat secara manual (tester)
+      // List<Placemark> placemarks = await placemarkFromCoordinates(
+      //   latitude2, // Gunakan latitude manual
+      //   longitude2, // Gunakan longitude manual
+      // );
 
       Placemark place = placemarks[0];
 
       setState(() {
+        // Get lat long dari GPS Geolocator
         currentposition = position;
+
+        // Get lat long geolocator utk rumus secara manual (tester)
+        // currentposition = Position(
+        //     latitude: latitude2,
+        //     longitude: longitude2,
+        //     timestamp: DateTime
+        //         .now(),
+        //     accuracy: 0.0,
+        //     altitude: 0.0,
+        //     heading: 0.0,
+        //     speed: 0.0,
+        //     speedAccuracy:
+        //         0.0
+        //     );
+        // _determinePosition();
+
         currentAddress =
             "${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}, ${place.administrativeArea} ${place.country}, ${place.postalCode}";
 
@@ -127,9 +153,23 @@ class _HomeState extends State<Home> {
                 ? Text(
                     'Longitude = ${currentposition!.longitude}') // Use null-aware operator
                 : Container(),
-            currentposition != null ? Text(haversineDistanceText) : Container(),
             currentposition != null ? Text(manhattanDistanceText) : Container(),
             currentposition != null ? Text(euclideanDistanceText) : Container(),
+            currentposition != null
+                ? Column(
+                    children: [
+                      Text(haversineDistanceText),
+                      calculateHaversineDistance(
+                                  currentposition!.latitude,
+                                  currentposition!.longitude,
+                                  targetLat,
+                                  targetLon) <=
+                              500
+                          ? Text('Kamu berada di jangkauan radius')
+                          : Text('Kamu berada di luar jangkauan radius')
+                    ],
+                  )
+                : Container(),
             TextButton(
               onPressed: () {
                 _determinePosition();
@@ -143,6 +183,8 @@ class _HomeState extends State<Home> {
   }
 }
 
+// Rumus Matematika Haversine
+// haversine_distance = 2 * r * arcsin(sqrt(sin^2((lat2 - lat1)/2) + cos(lat1) * cos(lat2) * sin^2((lon2 - lon1)/2)))
 // Fungsi untuk menghitung jarak menggunakan algoritma Haversine
 double calculateHaversineDistance(
     double lat1, double lon1, double lat2, double lon2) {
@@ -154,51 +196,43 @@ double calculateHaversineDistance(
   double lat2Rad = degreesToRadians(lat2);
   double lon2Rad = degreesToRadians(lon2);
 
-  // Calculate the differences between the latitudes and longitudes
-  double dLat = lat2Rad - lat1Rad;
-  double dLon = lon2Rad - lon1Rad;
+  double haversineDistance = 2 *
+      earthRadius *
+      asin(sqrt(sin((lat2Rad - lat1Rad) / 2) * sin((lat2Rad - lat1Rad) / 2) +
+          cos(lat1Rad) *
+              cos(lat2Rad) *
+              sin((lon2Rad - lon1Rad) / 2) *
+              sin((lon2Rad - lon1Rad) / 2)));
 
-  // Haversine formula
-  double a = pow(sin(dLat / 2), 2) +
-      cos(lat1Rad) * cos(lat2Rad) * pow(sin(dLon / 2), 2);
-  double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  double distance = earthRadius * c; // Distance in meters
-
-  return distance;
+  return haversineDistance;
 }
 
+// Rumus Matematika Manhattan
+// manhattan_distance = 𝑑(x, y) = ∑ |x − y| atau |x2 - x1| + |y2 - y1| atau
+// manhattan_distance = |lat2 - lat1| + |lon2 - lon1|
 // Fungsi untuk menghitung jarak menggunakan algoritma Manhattan
 double calculateManhattanDistance(
     double lat1, double lon1, double lat2, double lon2) {
-  // Convert latitude and longitude to radians
-  double lat1Rad = degreesToRadians(lat1);
-  double lon1Rad = degreesToRadians(lon1);
-  double lat2Rad = degreesToRadians(lat2);
-  double lon2Rad = degreesToRadians(lon2);
+  final double latDiff = (lat2 - lat1).abs();
+  final double lonDiff = (lon2 - lon1).abs();
 
-  // Calculate differences
-  double latDiff = (lat2Rad - lat1Rad).abs();
-  double lonDiff = (lon2Rad - lon1Rad).abs();
+  final double manhattanDistance = latDiff + lonDiff;
 
-  // Calculate Manhattan distance
-  double manhattanDistance = latDiff + lonDiff;
-
-  return manhattanDistance *
-      6371000; // Convert to meters (1 degree ≈ 111000 meters)
+  return manhattanDistance * 111000; // (1 degree ≈ 111000 meters)
 }
 
+// Rumus Matematika Euclidian
+// euclidian_distance = d(x, y) = √∑(x − y)^2 atau √[(x2 - x1)^2 + (y2 - y1)^2] atau
+// euclidean_distance = √[(lat2 - lat1)^2 + (lon2 - lon1)^2]
 // Fungsi untuk menghitung jarak menggunakan algoritma Euclidean
 double calculateEuclideanDistance(
     double lat1, double lon1, double lat2, double lon2) {
-  // Convert latitude and longitude to radians
-  double latDiff = degreesToRadians(lat2 - lat1);
-  double lonDiff = degreesToRadians(lon2 - lon1);
+  final double latDiff = lat2 - lat1;
+  final double lonDiff = lon2 - lon1;
 
-  // Calculate Euclidean distance
-  double euclideanDistance = sqrt(latDiff * latDiff + lonDiff * lonDiff);
+  final double euclideanDistance = sqrt(latDiff * latDiff + lonDiff * lonDiff);
 
-  return euclideanDistance *
-      6371000; // Convert to meters (1 degree ≈ 111000 meters)
+  return euclideanDistance * 111000; // (1 degree ≈ 111000 meters)
 }
 
 // Fungsi untuk mengkonversi derajat menjadi radian
